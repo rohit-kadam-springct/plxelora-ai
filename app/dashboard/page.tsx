@@ -1,28 +1,75 @@
-import { auth, currentUser } from '@clerk/nextjs/server'
-import { redirect } from 'next/navigation'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { Wand2, Zap, Clock, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 
-export default async function DashboardPage() {
-  const { userId } = await auth()
-  const user = await currentUser()
+interface UserStats {
+  credits: number
+  totalGenerations: number
+  styles: number
+  personas: number
+}
 
-  if (!userId) {
-    redirect('/')
+interface Generation {
+  id: string
+  prompt: string
+  status: string
+  createdAt: string
+  imageUrl?: string
+}
+
+export default function DashboardPage() {
+  const { user, isLoaded } = useUser()
+  const [stats, setStats] = useState<UserStats>({
+    credits: 0,
+    totalGenerations: 0,
+    styles: 0,
+    personas: 0,
+  })
+  const [recentGenerations, setRecentGenerations] = useState<Generation[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchData() {
+      if (!isLoaded || !user) return
+
+      try {
+        // Fetch user profile and stats
+        const profileResponse = await fetch('/api/user/profile')
+        const profileData = await profileResponse.json()
+
+        if (profileData.stats) {
+          setStats(profileData.stats)
+        }
+
+        // Fetch recent generations
+        const generationsResponse = await fetch('/api/generations/history?limit=5')
+        const generationsData = await generationsResponse.json()
+
+        if (generationsData.generations) {
+          setRecentGenerations(generationsData.generations)
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard ', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [isLoaded, user])
+
+  if (!isLoaded || loading) {
+    return (
+      <div className="max-w-6xl mx-auto px-6 space-y-6">
+        <div className="glass-morphism rounded-xl p-6 animate-pulse">
+          <div className="h-20 bg-dark-700/30 rounded"></div>
+        </div>
+      </div>
+    )
   }
-
-  const userStats = {
-    credits: 47,
-    totalGenerations: 23,
-  }
-
-  const recentGenerations = [
-    { id: 1, title: 'Gaming Thumbnail', createdAt: '2 hours ago', status: 'ready' },
-    { id: 2, title: 'Tech Review Cover', createdAt: '1 day ago', status: 'ready' },
-    { id: 3, title: 'Podcast Episode Art', createdAt: '3 days ago', status: 'ready' },
-    { id: 4, title: 'YouTube Short Cover', createdAt: '5 days ago', status: 'ready' },
-    { id: 5, title: 'Tutorial Thumbnail', createdAt: '1 week ago', status: 'ready' },
-  ]
 
   return (
     <div className="max-w-6xl mx-auto px-6 space-y-6">
@@ -44,11 +91,11 @@ export default async function DashboardPage() {
               <div className="flex items-center gap-6 text-sm text-gray-400">
                 <span className="flex items-center gap-2">
                   <Zap className="w-4 h-4 text-yellow-400" />
-                  {userStats.credits} credits available
+                  {stats.credits} credits available
                 </span>
                 <span className="flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-green-400" />
-                  {userStats.totalGenerations} thumbnails created
+                  {stats.totalGenerations} thumbnails created
                 </span>
               </div>
             </div>
@@ -81,21 +128,41 @@ export default async function DashboardPage() {
               >
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-lg flex items-center justify-center">
-                    <Wand2 className="w-5 h-5 text-purple-400" />
+                    {item.imageUrl ? (
+                      <img
+                        src={item.imageUrl}
+                        alt="Thumbnail"
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    ) : (
+                      <Wand2 className="w-5 h-5 text-purple-400" />
+                    )}
                   </div>
                   <div>
-                    <h3 className="font-medium text-white text-sm">{item.title}</h3>
+                    <h3 className="font-medium text-white text-sm">
+                      {item.prompt.length > 50 ? `${item.prompt.substring(0, 50)}...` : item.prompt}
+                    </h3>
                     <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
                       <Clock className="w-3 h-3" />
-                      {item.createdAt}
+                      {new Date(item.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <button className="btn-base btn-outline btn-sm text-xs px-3 py-1.5">
-                    View
-                  </button>
+                  <span className={`text-xs px-2 py-1 rounded-full ${item.status === 'COMPLETED'
+                      ? 'bg-green-500/20 text-green-400'
+                      : item.status === 'PENDING'
+                        ? 'bg-yellow-500/20 text-yellow-400'
+                        : 'bg-red-500/20 text-red-400'
+                    }`}>
+                    {item.status}
+                  </span>
+                  {item.imageUrl && (
+                    <button className="btn-base btn-outline btn-sm text-xs px-3 py-1.5">
+                      View
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
