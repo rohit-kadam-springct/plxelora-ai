@@ -51,10 +51,12 @@ export async function generateImage(
     } = request;
 
     // Enhanced prompt for better thumbnail results
-    const enhancedPrompt = `Create a professional, high-quality thumbnail image: ${prompt}
+    const enhancedPrompt = `Generate a professional, high-quality thumbnail image: ${prompt}
 Style: Eye-catching, vibrant colors, sharp focus, suitable for social media and YouTube
 Format: ${aspectRatio} aspect ratio, clean composition, engaging visual design
-Technical: Professional photography quality, good contrast, optimized for small preview sizes`;
+Technical: High resolution, good contrast, optimized for preview sizes`;
+
+    console.log("🚀 Sending request to OpenRouter...");
 
     const response = await openRouterClient.chat.completions.create({
       model: OPENROUTER_MODELS[model],
@@ -68,37 +70,46 @@ Technical: Professional photography quality, good contrast, optimized for small 
       temperature,
     });
 
-    const content = response.choices[0]?.message?.content;
+    const choice = response.choices[0];
+    const content = choice?.message?.content;
     const usage = response.usage;
 
-    if (!content) {
-      return {
-        success: false,
-        content: null,
-        imageUrl: null,
-        error: "No content generated from the model",
-      };
-    }
+    console.log("📝 OpenRouter response received");
 
-    // Check if response contains image URL or base64 data
+    // FIXED: Extract image from the images field
     let imageUrl: string | null = null;
 
-    // Look for image URLs in the response
-    const urlMatch = content.match(
-      /https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp)/i
-    );
-    if (urlMatch) {
-      imageUrl = urlMatch[0];
+    // Check if the response has images field (OpenRouter format)
+    if (choice?.message && "images" in choice.message) {
+      const images = (choice.message as any).images;
+      console.log("🖼️ Found images field:", images?.length || 0, "images");
+
+      if (images && images.length > 0) {
+        const firstImage = images[0];
+        if (firstImage?.image_url?.url) {
+          imageUrl = firstImage.image_url.url;
+        }
+      }
     }
 
-    // Look for base64 image data
-    const base64Match = content.match(/image\/[^;]+;base64,[^\s]+/);
-    if (base64Match) {
-      imageUrl = base64Match[0];
+    // Fallback: Check content for base64 data (backup method)
+    if (!imageUrl && content) {
+      // Check if content contains base64 data
+      if (content.startsWith("image/")) {
+        imageUrl = content;
+        console.log("✅ Found data URL in content");
+      } else if (
+        content.length > 100 &&
+        /^[A-Za-z0-9+/=]+$/.test(content.trim())
+      ) {
+        imageUrl = `image/png;base64,${content.trim()}`;
+        console.log("✅ Found raw base64 in content, added prefix");
+      }
     }
 
-    // If no image found, create placeholder for now
+    // If still no image found, create placeholder
     if (!imageUrl) {
+      console.log("❌ No valid image data found, using placeholder");
       const encodedPrompt = encodeURIComponent(prompt.substring(0, 30));
       const dimensions =
         aspectRatio === "16:9"
@@ -111,7 +122,7 @@ Technical: Professional photography quality, good contrast, optimized for small 
 
     return {
       success: true,
-      content,
+      content: content || "Image generated successfully",
       imageUrl,
       usage: usage
         ? {
@@ -122,9 +133,8 @@ Technical: Professional photography quality, good contrast, optimized for small 
         : undefined,
     };
   } catch (error: any) {
-    console.error("OpenRouter generation error:", error);
+    console.error("❌ OpenRouter generation error:", error);
 
-    // Handle rate limiting
     if (error.status === 429) {
       return {
         success: false,
@@ -134,7 +144,6 @@ Technical: Professional photography quality, good contrast, optimized for small 
       };
     }
 
-    // Handle insufficient credits
     if (error.status === 402) {
       return {
         success: false,
