@@ -1,26 +1,255 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Tailwind v4 CSS Configuration */
+@theme {
+  /* Custom Colors */
+  --color-dark-900: #0a0a0a;
+  --color-dark-800: #111111;
+  --color-dark-700: #1a1a1a;
+  --color-dark-600: #2a2a2a;
+  
+  --color-accent-purple: #8b5cf6;
+  --color-accent-blue: #3b82f6;
+  --color-accent-green: #10b981;
+  
+  --color-neon-purple: #a855f7;
+  --color-neon-blue: #06b6d4;
+  --color-neon-green: #00ffc2;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Custom Keyframes */
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0px); 
+  }
+  50% { 
+    transform: translateY(-20px); 
   }
 }
 
+@keyframes glow {
+  0% { 
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.5); 
+  }
+  100% { 
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.8); 
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Base Styles - Only what's necessary */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-image: radial-gradient(circle, rgba(139, 92, 246, 0.1) 1px, transparent 1px);
+  background-size: 30px 30px;
+  background-attachment: fixed;
+}
+
+/* Custom Components Only */
+.dot-matrix-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: radial-gradient(circle, rgba(139, 92, 246, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #a855f7, #06b6d4, #00ffc2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glass-morphism {
+  background: rgba(26, 26, 26, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.feature-card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.feature-card-hover:hover {
+  transform: translateY(-8px);
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.3),
+    0 0 20px rgba(139, 92, 246, 0.2);
+}
+
+.pricing-card-popular {
+  background: linear-gradient(135deg, 
+    rgba(139, 92, 246, 0.1) 0%, 
+    rgba(59, 130, 246, 0.1) 100%);
+  border: 2px solid rgba(139, 92, 246, 0.5);
+  position: relative;
+}
+
+.pricing-card-popular::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  background: linear-gradient(135deg, #a855f7, #06b6d4);
+  border-radius: inherit;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+}
+
+/* Button Components */
+.btn-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  border-radius: 12px;
+  transition: all 200ms ease-in-out;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-base:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(to right, #8b5cf6, #3b82f6);
+  color: white;
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.25);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: scale(1.02);
+  box-shadow: 0 8px 30px rgba(139, 92, 246, 0.4);
+}
+
+.btn-secondary {
+  background-color: #1a1a1a;
+  color: white;
+  border: 1px solid #2a2a2a;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #2a2a2a;
+}
+
+.btn-outline {
+  border: 2px solid #8b5cf6;
+  color: #8b5cf6;
+  background: transparent;
+}
+
+.btn-outline:hover:not(:disabled) {
+  background-color: #8b5cf6;
+  color: white;
+}
+
+.btn-ghost {
+  color: #d1d5db;
+  background: transparent;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: white;
+  background-color: #1a1a1a;
+}
+
+/* Button Sizes */
+.btn-sm {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+.btn-md {
+  padding: 12px 24px;
+  font-size: 16px;
+}
+
+.btn-lg {
+  padding: 16px 32px;
+  font-size: 18px;
+}
+
+/* FAQ Components */
+.faq-item {
+  background: rgba(26, 26, 26, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.faq-button {
+  width: 100%;
+  padding: 24px;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background-color 200ms ease-in-out;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+}
+
+.faq-button:hover {
+  background-color: rgba(26, 26, 26, 0.5);
+}
+
+/* Icon Gradients */
+.icon-gradient-purple {
+  background: linear-gradient(to right, #8b5cf6, #ec4899);
+}
+
+.icon-gradient-blue {
+  background: linear-gradient(to right, #3b82f6, #06b6d4);
+}
+
+.icon-gradient-green {
+  background: linear-gradient(to right, #10b981, #059669);
+}
+
+.icon-gradient-yellow {
+  background: linear-gradient(to right, #f59e0b, #f97316);
+}
+
+.icon-gradient-red {
+  background: linear-gradient(to right, #ef4444, #ec4899);
+}
+
+.icon-gradient-indigo {
+  background: linear-gradient(to right, #6366f1, #8b5cf6);
+}
+
+/* Animation Classes */
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+.animate-pulse-slow {
+  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Text utilities */
+.text-balance {
+  text-wrap: balance;
 }
