@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { SignInButton, useUser } from '@clerk/nextjs'
 import { Sparkles, Zap, Wand2 } from 'lucide-react'
 import Button from '@/components/ui/Button'
+import Link from 'next/link'
 
 export default function Hero() {
   const { isSignedIn } = useUser()
@@ -88,10 +89,12 @@ export default function Hero() {
               </Button>
             </SignInButton>
           ) : (
-            <Button size="lg" className="text-lg px-12 py-4">
-              <Wand2 className="w-5 h-5 mr-2" />
-              Go to Studio
-            </Button>
+            <Link href="/dashboard">
+              <Button size="lg" className="text-lg px-12 py-4">
+                <Wand2 className="w-5 h-5 mr-2" />
+                Go to Dashboard
+              </Button>
+            </Link>
           )}
           {/* <Button variant="outline" size="lg" className="text-lg px-8 py-4">
             See Examples
