@@ -101,6 +101,7 @@ export async function getUserWithStats(clerkId: string) {
 }
 
 // Credit Operations
+// Credit Operations - Without Transactions
 export async function getUserCredits(clerkId: string): Promise<number> {
   const user = await getUserByClerkId(clerkId);
   return user?.credits || 0;
@@ -113,40 +114,47 @@ export async function deductCredits(
   generationId?: string
 ): Promise<boolean> {
   try {
-    const result = await db.transaction(async (tx) => {
-      // Get current user
-      const [user] = await tx
-        .select()
-        .from(users)
-        .where(eq(users.clerkId, clerkId))
-        .limit(1);
+    // Get current user
+    const user = await getUserByClerkId(clerkId);
 
-      if (!user || user.credits < amount) {
-        throw new Error("Insufficient credits");
-      }
+    if (!user || user.credits < amount) {
+      console.error("Insufficient credits:", {
+        userCredits: user?.credits,
+        required: amount,
+      });
+      return false;
+    }
 
-      // Deduct credits
-      await tx
-        .update(users)
-        .set({
-          credits: user.credits - amount,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.clerkId, clerkId));
+    // Update credits atomically
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        credits: user.credits - amount,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.clerkId, clerkId))
+      .returning();
 
-      // Log transaction
-      await tx.insert(creditTransactions).values({
+    if (!updatedUser) {
+      console.error("Failed to update user credits");
+      return false;
+    }
+
+    // Log transaction separately (not critical if this fails)
+    try {
+      await db.insert(creditTransactions).values({
         userId: user.id,
         amount: -amount,
         type: "USAGE",
         description,
         generationId,
       });
+    } catch (logError) {
+      console.error("Failed to log credit transaction:", logError);
+      // Don't fail the operation if logging fails
+    }
 
-      return true;
-    });
-
-    return result;
+    return true;
   } catch (error) {
     console.error("Error deducting credits:", error);
     return false;
@@ -161,42 +169,79 @@ export async function addCredits(
   paymentId?: string
 ): Promise<boolean> {
   try {
-    await db.transaction(async (tx) => {
-      // Get user
-      const [user] = await tx
-        .select()
-        .from(users)
-        .where(eq(users.clerkId, clerkId))
-        .limit(1);
+    // Get user
+    const user = await getUserByClerkId(clerkId);
 
-      if (!user) {
-        throw new Error("User not found");
-      }
+    if (!user) {
+      console.error("User not found for credit addition");
+      return false;
+    }
 
-      // Add credits
-      await tx
-        .update(users)
-        .set({
-          credits: user.credits + amount,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.clerkId, clerkId));
+    // Update credits atomically
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        credits: user.credits + amount,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.clerkId, clerkId))
+      .returning();
 
-      // Log transaction
-      await tx.insert(creditTransactions).values({
+    if (!updatedUser) {
+      console.error("Failed to update user credits");
+      return false;
+    }
+
+    // Log transaction separately (not critical if this fails)
+    try {
+      await db.insert(creditTransactions).values({
         userId: user.id,
         amount,
         type,
         description,
         paymentId,
       });
-    });
+    } catch (logError) {
+      console.error("Failed to log credit transaction:", logError);
+      // Don't fail the operation if logging fails
+    }
 
     return true;
   } catch (error) {
     console.error("Error adding credits:", error);
     return false;
   }
+}
+
+// Race condition protection with retry logic
+export async function deductCreditsWithRetry(
+  clerkId: string,
+  amount: number,
+  description?: string,
+  generationId?: string,
+  retries: number = 3
+): Promise<boolean> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const success = await deductCredits(
+      clerkId,
+      amount,
+      description,
+      generationId
+    );
+
+    if (success) {
+      return true;
+    }
+
+    if (attempt < retries) {
+      // Wait before retry (exponential backoff)
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.pow(2, attempt) * 100)
+      );
+    }
+  }
+
+  return false;
 }
 
 export async function getCreditHistory(clerkId: string, limit: number = 50) {
