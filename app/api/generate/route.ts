@@ -4,6 +4,7 @@ import { generateImage, type GenerationRequest } from "@/lib/openrouter";
 import { deductCreditsWithRetry, getUserCredits } from "@/lib/db/operations";
 import { db, users, generations } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { uploadToImageKit } from "@/lib/imagekit";
 
 const CREDITS_PER_GENERATION = 2;
 const MAX_PROMPT_LENGTH = 600;
@@ -107,18 +108,38 @@ export async function POST(request: Request) {
         throw new Error(result.error || "Failed to generate image");
       }
 
+      // Upload on imagekit
+      let finalImageUrl = result.imageUrl;
+      if (result.imageUrl.startsWith("data:image/")) {
+        console.log("📤 Uploading to ImageKit...");
+
+        const filename = `thumbnail-${generationRecord.id}.png`;
+        const uploadResult = await uploadToImageKit(result.imageUrl, filename);
+
+        if (uploadResult.success && uploadResult.url) {
+          finalImageUrl = uploadResult.url;
+          console.log("✅ Uploaded to ImageKit:", uploadResult.url);
+        } else {
+          console.log(
+            "⚠️ ImageKit upload failed, using base64:",
+            uploadResult.error
+          );
+          // Continue with base64 URL as fallback
+        }
+      }
+
       // Update generation record with success
       await db
         .update(generations)
         .set({
-          imageUrl: result.imageUrl,
+          imageUrl: finalImageUrl,
           status: "COMPLETED",
           updatedAt: new Date(),
         })
         .where(eq(generations.id, generationRecord.id));
 
       return NextResponse.json({
-        imageUrl: result.imageUrl,
+        imageUrl: finalImageUrl,
         prompt: prompt.trim(),
         status: "completed",
         generationId: generationRecord.id,

@@ -148,11 +148,16 @@ export default function CreatePage() {
               <div className="space-y-6">
                 <div className="relative inline-block">
                   <img
-                    src={generationResult.imageUrl}
+                    src={`${generationResult.imageUrl}?tr=w-800,h-450,q-80,f-auto`} // Auto-optimized!
                     alt="Generated thumbnail"
                     className="max-w-full h-auto rounded-xl shadow-2xl border border-purple-500/20"
                     style={{ maxHeight: '400px' }}
+                    onLoad={() => console.log('Optimized image loaded')}
+                    onError={(e) => console.error('Image load failed:', e)}
                   />
+                  <div className="absolute top-2 right-2 bg-green-500/20 text-green-400 px-2 py-1 rounded-full text-xs">
+                    Auto-Optimized ✨
+                  </div>
                 </div>
 
                 <div className="flex justify-center gap-4">
