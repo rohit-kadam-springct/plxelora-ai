@@ -1,10 +1,11 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { generateImage, type GenerationRequest } from "@/lib/openrouter";
-import { deductCreditsWithRetry, getUserCredits } from "@/lib/db/operations";
-import { db, users, generations } from "@/lib/db";
-import { eq } from "drizzle-orm";
 import { uploadToImageKit } from "@/lib/imagekit";
+import { deductCreditsWithRetry, getUserCredits } from "@/lib/db/operations";
+import { db, users, generations, personas, styles } from "@/lib/db";
+import { eq } from "drizzle-orm";
+import { getDimensions, type AspectRatio } from "@/lib/image-dimensions";
 
 const CREDITS_PER_GENERATION = 2;
 const MAX_PROMPT_LENGTH = 600;
@@ -18,7 +19,13 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { prompt, aspectRatio = "16:9" } = body;
+    const {
+      prompt,
+      aspectRatio = "16:9",
+      personaId,
+      styleId,
+      editGenerationId,
+    } = body;
 
     // Validate prompt
     if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
@@ -59,18 +66,67 @@ export async function POST(request: Request) {
       );
     }
 
+    // Get persona and style data
+    let persona = null,
+      style = null;
+
+    if (personaId) {
+      [persona] = await db
+        .select()
+        .from(personas)
+        .where(eq(personas.id, personaId))
+        .limit(1);
+    }
+
+    if (styleId) {
+      [style] = await db
+        .select()
+        .from(styles)
+        .where(eq(styles.id, styleId))
+        .limit(1);
+    }
+
+    // Get fixed dimensions for aspect ratio
+    const dimensions = getDimensions(aspectRatio as AspectRatio);
+
+    // Enhanced prompt with persona/style context
+    let enhancedPrompt = `Create a professional ${dimensions.name} thumbnail (${dimensions.width}x${dimensions.height}): ${prompt}`;
+
+    if (persona) {
+      enhancedPrompt += ` | Persona: ${persona.name} | Reference person image: ${persona.imageUrl}`;
+    }
+
+    if (style?.extractedMetadata) {
+      const metadata = style.extractedMetadata as any;
+      if (metadata.colorPalette)
+        enhancedPrompt += ` | Colors: ${JSON.stringify(metadata.colorPalette)}`;
+      if (metadata.visualStyle)
+        enhancedPrompt += ` | Style: ${metadata.visualStyle}`;
+      if (metadata.mood) enhancedPrompt += ` | Mood: ${metadata.mood}`;
+    }
+
+    enhancedPrompt += ` | Technical: ${dimensions.width}x${dimensions.height} resolution, high quality, sharp focus, optimized for thumbnail viewing`;
+
     // Create generation record
     const [generationRecord] = await db
       .insert(generations)
       .values({
         userId: user.id,
         prompt: prompt.trim(),
+        enhancedPrompt,
         status: "PROCESSING",
         creditsUsed: CREDITS_PER_GENERATION,
-        width:
-          aspectRatio === "16:9" ? 1280 : aspectRatio === "9:16" ? 720 : 1024,
-        height:
-          aspectRatio === "16:9" ? 720 : aspectRatio === "9:16" ? 1280 : 1024,
+        width: dimensions.width,
+        height: dimensions.height,
+        personaId: personaId || null,
+        styleId: styleId || null,
+        parentGenerationId: editGenerationId || null,
+        dimensions: {
+          width: dimensions.width,
+          height: dimensions.height,
+          aspectRatio,
+          name: dimensions.name,
+        },
       })
       .returning();
 
@@ -95,11 +151,12 @@ export async function POST(request: Request) {
     }
 
     try {
-      // Generate image using OpenRouter library
+      // Generate image using OpenRouter
       const generationRequest: GenerationRequest = {
-        prompt: prompt.trim(),
+        prompt: enhancedPrompt,
         aspectRatio: aspectRatio as "16:9" | "9:16" | "1:1",
         model: "GEMINI_IMAGE",
+        personaImage: persona.imageUrl,
       };
 
       const result = await generateImage(generationRequest);
@@ -119,12 +176,6 @@ export async function POST(request: Request) {
         if (uploadResult.success && uploadResult.url) {
           finalImageUrl = uploadResult.url;
           console.log("✅ Uploaded to ImageKit:", uploadResult.url);
-        } else {
-          console.log(
-            "⚠️ ImageKit upload failed, using base64:",
-            uploadResult.error
-          );
-          // Continue with base64 URL as fallback
         }
       }
 
@@ -143,7 +194,16 @@ export async function POST(request: Request) {
         prompt: prompt.trim(),
         status: "completed",
         generationId: generationRecord.id,
+        dimensions: {
+          width: dimensions.width,
+          height: dimensions.height,
+          aspectRatio,
+          name: dimensions.name,
+        },
+        persona: persona ? { name: persona.name } : null,
+        style: style ? { name: style.name } : null,
         usage: result.usage,
+        storedInImageKit: finalImageUrl !== result.imageUrl,
       });
     } catch (error: any) {
       console.error("Generation error:", error);

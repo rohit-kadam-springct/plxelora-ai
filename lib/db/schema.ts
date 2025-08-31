@@ -10,7 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
-// Enums
+// Existing enums
 export const planEnum = pgEnum("plan", ["FREE", "CREATOR", "PRO"]);
 export const generationStatusEnum = pgEnum("generation_status", [
   "PENDING",
@@ -31,7 +31,7 @@ export const paymentStatusEnum = pgEnum("payment_status", [
   "REFUNDED",
 ]);
 
-// Users Table
+// Users Table (existing)
 export const users = pgTable("users", {
   id: text("id")
     .primaryKey()
@@ -42,7 +42,7 @@ export const users = pgTable("users", {
   lastName: text("last_name"),
   imageUrl: text("image_url"),
   plan: planEnum("plan").default("FREE").notNull(),
-  credits: integer("credits").default(5).notNull(), // Free tier starts with 5
+  credits: integer("credits").default(5).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -50,7 +50,59 @@ export const users = pgTable("users", {
     .$onUpdate(() => new Date()),
 });
 
-// Generations Table
+// NEW: Personas Table
+export const personas = pgTable("personas", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"), // Optional description for user reference
+  imageUrl: text("image_url").notNull(), // ✅ Required - this is the actual persona image
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
+});
+
+// NEW: Styles Table (no single image, uses styleImages table)
+export const styles = pgTable("styles", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  extractedMeta: json("extracted_metadata"), // Combined metadata from all images
+  isPublic: boolean("is_public").default(false).notNull(),
+  usageCount: integer("usage_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
+});
+
+// NEW: Style Images Table (multiple images per style)
+export const styleImages = pgTable("style_images", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  styleId: text("style_id")
+    .notNull()
+    .references(() => styles.id, { onDelete: "cascade" }),
+  imageUrl: text("image_url").notNull(),
+  order: integer("order").default(0).notNull(),
+  extractedMeta: json("extracted_metadata"), // Individual image metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// UPDATED: Generations Table (with persona, style, edit support)
 export const generations = pgTable("generations", {
   id: text("id")
     .primaryKey()
@@ -65,8 +117,14 @@ export const generations = pgTable("generations", {
   creditsUsed: integer("credits_used").default(1).notNull(),
   width: integer("width").default(1280),
   height: integer("height").default(720),
-  styleId: text("style_id"),
-  personaId: text("persona_id"),
+  // NEW: Persona and Style support
+  personaId: text("persona_id").references(() => personas.id),
+  styleId: text("style_id").references(() => styles.id),
+  // NEW: Edit functionality
+  parentGenerationId: text("parent_generation_id"), // For edits
+  editPrompt: text("edit_prompt"), // What user wanted to change
+  // NEW: Dimension tracking
+  dimensions: json("dimensions"), // Store actual output dimensions
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -113,92 +171,35 @@ export const paymentRecords = pgTable("payment_records", {
     .$onUpdate(() => new Date()),
 });
 
-// Styles Table
-export const styles = pgTable("styles", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  description: text("description"),
-  // Style properties as JSON
-  palette: json("palette"), // Color palette
-  typography: json("typography"), // Typography settings
-  composition: json("composition"), // Layout settings
-  treatments: json("treatments"), // Effects and treatments
-  isPublic: boolean("is_public").default(false).notNull(),
-  usageCount: integer("usage_count").default(0).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .notNull()
-    .$onUpdate(() => new Date()),
-});
-
-// Personas Table
-export const personas = pgTable("personas", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  description: text("description"),
-  imageUrl: text("image_url").notNull(),
-  usageCount: integer("usage_count").default(0).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .notNull()
-    .$onUpdate(() => new Date()),
-});
-
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
+export const personasRelations = relations(personas, ({ one, many }) => ({
+  user: one(users, { fields: [personas.userId], references: [users.id] }),
   generations: many(generations),
-  creditTransactions: many(creditTransactions),
-  paymentRecords: many(paymentRecords),
-  styles: many(styles),
-  personas: many(personas),
-}));
-
-export const generationsRelations = relations(generations, ({ one }) => ({
-  user: one(users, { fields: [generations.userId], references: [users.id] }),
-  style: one(styles, {
-    fields: [generations.styleId],
-    references: [styles.id],
-  }),
-  persona: one(personas, {
-    fields: [generations.personaId],
-    references: [personas.id],
-  }),
-}));
-
-export const creditTransactionsRelations = relations(
-  creditTransactions,
-  ({ one }) => ({
-    user: one(users, {
-      fields: [creditTransactions.userId],
-      references: [users.id],
-    }),
-  })
-);
-
-export const paymentRecordsRelations = relations(paymentRecords, ({ one }) => ({
-  user: one(users, { fields: [paymentRecords.userId], references: [users.id] }),
 }));
 
 export const stylesRelations = relations(styles, ({ one, many }) => ({
   user: one(users, { fields: [styles.userId], references: [users.id] }),
+  images: many(styleImages),
   generations: many(generations),
 }));
 
-export const personasRelations = relations(personas, ({ one, many }) => ({
-  user: one(users, { fields: [personas.userId], references: [users.id] }),
-  generations: many(generations),
+export const styleImagesRelations = relations(styleImages, ({ one }) => ({
+  style: one(styles, {
+    fields: [styleImages.styleId],
+    references: [styles.id],
+  }),
+}));
+
+export const generationsRelations = relations(generations, ({ one }) => ({
+  user: one(users, { fields: [generations.userId], references: [users.id] }),
+  persona: one(personas, {
+    fields: [generations.personaId],
+    references: [personas.id],
+  }),
+  style: one(styles, {
+    fields: [generations.styleId],
+    references: [styles.id],
+  }),
 }));
 
 // Type exports for use in application

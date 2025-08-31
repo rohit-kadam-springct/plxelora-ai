@@ -3,9 +3,9 @@ import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from '@clerk/themes'
 import "./globals.css";
+import Provider from "./provider";
 
 const inter = Inter({ subsets: ['latin'] })
-
 
 export const metadata: Metadata = {
   title: 'Pixelora AI - Simple AI Visual Creation',
@@ -47,7 +47,9 @@ export default function RootLayout({
         </head>
         <body className={`${inter.className} bg-dark-900 text-white`}>
           <div className="dot-matrix-overlay" />
-          {children}
+          <Provider>
+            {children}
+          </Provider>
         </body>
       </html>
     </ClerkProvider>

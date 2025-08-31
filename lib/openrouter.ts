@@ -24,6 +24,7 @@ export interface GenerationRequest {
   aspectRatio?: "16:9" | "9:16" | "1:1";
   maxTokens?: number;
   temperature?: number;
+  personaImage?: string;
 }
 
 export interface GenerationResponse {
@@ -58,14 +59,34 @@ Technical: High resolution, good contrast, optimized for preview sizes`;
 
     console.log("🚀 Sending request to OpenRouter...");
 
+    const messages: any = [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: enhancedPrompt,
+          },
+        ],
+      },
+    ];
+
+    {
+    }
+
+    // ✅ If persona image provided, include it in the message
+    if (request.personaImage) {
+      messages[0].content.push({
+        type: "image_url",
+        image_url: {
+          url: request.personaImage,
+        },
+      });
+    }
+
     const response = await openRouterClient.chat.completions.create({
       model: OPENROUTER_MODELS[model],
-      messages: [
-        {
-          role: "user",
-          content: enhancedPrompt,
-        },
-      ],
+      messages,
       max_tokens: maxTokens,
       temperature,
     });
@@ -159,6 +180,49 @@ Technical: High resolution, good contrast, optimized for preview sizes`;
       content: null,
       imageUrl: null,
       error: error.message || "Failed to generate image",
+    };
+  }
+}
+
+export async function generateText(
+  prompt: string,
+  model: keyof typeof OPENROUTER_MODELS = "GEMINI_TEXT",
+  maxTokens: number = 500
+): Promise<{ success: boolean; content: string | null; error?: string }> {
+  try {
+    const response = await openRouterClient.chat.completions.create({
+      model: OPENROUTER_MODELS[model],
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      max_tokens: maxTokens,
+      temperature: 0.7,
+    });
+
+    const content = response.choices[0]?.message?.content;
+
+    if (!content) {
+      return {
+        success: false,
+        content: null,
+        error: "No content generated",
+      };
+    }
+
+    return {
+      success: true,
+      content,
+    };
+  } catch (error: any) {
+    console.error("OpenRouter text generation error:", error);
+
+    return {
+      success: false,
+      content: null,
+      error: error.message || "Failed to generate text",
     };
   }
 }

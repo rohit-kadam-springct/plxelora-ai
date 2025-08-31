@@ -1,187 +1,214 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { Wand2, Zap, Clock, TrendingUp } from 'lucide-react'
+import {
+  Wand2,
+  CreditCard,
+  User,
+  Palette,
+  Clock,
+  Plus
+} from 'lucide-react'
+import {
+  useDashboardStats,
+  useRecentGenerations,
+  useUserPersonas
+} from '@/hooks/useDashboard'
+import type { DashboardStat, Generation } from '@/types/dashboard'
 import Link from 'next/link'
 
-interface UserStats {
-  credits: number
-  totalGenerations: number
-  styles: number
-  personas: number
+// Static data that shows immediately
+const STATIC_DASHBOARD_DATA: {
+  quickStats: DashboardStat[]
+  recentActivity: Array<{ type: string; time: string; description: string }>
+} = {
+  quickStats: [
+    { label: 'Credits', value: '---', icon: CreditCard, color: 'text-green-400' },
+    { label: 'Generated', value: '---', icon: Wand2, color: 'text-purple-400' },
+    { label: 'Personas', value: '---', icon: User, color: 'text-blue-400' },
+    { label: 'Styles', value: '---', icon: Palette, color: 'text-pink-400' },
+  ],
+  recentActivity: [
+    { type: 'placeholder', time: 'Loading...', description: 'Fetching your recent activity' }
+  ]
 }
 
-interface Generation {
-  id: string
-  prompt: string
-  status: string
-  createdAt: string
-  imageUrl?: string
+// Component Props Types
+interface StatCardProps {
+  stat: DashboardStat
+  realData?: DashboardStat
+}
+
+interface RecentActivityProps {
+  realData?: Generation[]
+}
+
+function StatCard({ stat, realData }: StatCardProps) {
+  const displayValue = realData?.value ?? stat.value
+  const isLoaded = !!realData
+
+  return (
+    <div className="bg-gray-800 border border-gray-600 rounded-xl p-6 hover:border-purple-500/50 transition-colors">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-gray-400 text-sm font-medium">{stat.label}</p>
+          <p className={`text-2xl font-bold ${isLoaded ? stat.color : 'text-gray-500'} transition-colors`}>
+            {displayValue}
+          </p>
+        </div>
+        {stat.icon && (
+          <stat.icon className={`w-8 h-8 ${isLoaded ? stat.color : 'text-gray-600'} transition-colors`} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function RecentActivity({ realData }: RecentActivityProps) {
+  return (
+    <div className="bg-gray-800 border border-gray-600 rounded-xl p-6">
+      <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <Clock className="w-5 h-5" />
+        Recent Activity
+      </h3>
+
+      {!realData ? (
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg animate-pulse">
+              <div className="w-10 h-10 bg-gray-700 rounded"></div>
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-32 bg-gray-700 rounded"></div>
+                <div className="h-3 w-48 bg-gray-700 rounded"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : realData.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-400 mb-4">No recent activity yet</p>
+          <button className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors">
+            Create Your First Thumbnail
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {realData.slice(0, 5).map((activity) => (
+            <div key={activity.id} className="flex items-center gap-3 p-3 bg-gray-700/30 rounded-lg">
+              <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
+                <Wand2 className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-white text-sm font-medium">
+                  Generated "{activity.prompt.substring(0, 30)}..."
+                </p>
+                <p className="text-gray-400 text-xs">
+                  {activity.dimensions?.width}×{activity.dimensions?.height} • {new Date(activity.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              {activity.imageUrl && (
+                <img
+                  src={activity.imageUrl}
+                  alt="Thumbnail"
+                  className="w-8 h-8 object-cover rounded"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function DashboardPage() {
-  const { user, isLoaded } = useUser()
-  const [stats, setStats] = useState<UserStats>({
-    credits: 0,
-    totalGenerations: 0,
-    styles: 0,
-    personas: 0,
-  })
-  const [recentGenerations, setRecentGenerations] = useState<Generation[]>([])
-  const [loading, setLoading] = useState(true)
+  const { user } = useUser()
 
-  useEffect(() => {
-    async function fetchData() {
-      if (!isLoaded || !user) return
-
-      try {
-        // Fetch user profile and stats
-        const profileResponse = await fetch('/api/user/profile')
-        const profileData = await profileResponse.json()
-
-        if (profileData.stats) {
-          setStats(profileData.stats)
-        }
-
-        // Fetch recent generations
-        const generationsResponse = await fetch('/api/generations/history?limit=5')
-        const generationsData = await generationsResponse.json()
-
-        if (generationsData.generations) {
-          setRecentGenerations(generationsData.generations)
-        }
-      } catch (error) {
-        console.error('Error fetching dashboard ', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [isLoaded, user])
-
-  if (!isLoaded || loading) {
-    return (
-      <div className="max-w-6xl mx-auto px-6 space-y-6">
-        <div className="glass-morphism rounded-xl p-6 animate-pulse">
-          <div className="h-20 bg-dark-700/30 rounded"></div>
-        </div>
-      </div>
-    )
-  }
+  // Typed React Query hooks
+  const { data: statsData, isLoading: statsLoading, error: statsError } = useDashboardStats()
+  const { data: generationsData, isLoading: generationsLoading } = useRecentGenerations()
+  const { data: personasData } = useUserPersonas()
 
   return (
-    <div className="max-w-6xl mx-auto px-6 space-y-6">
-      {/* Welcome Section */}
-      <div className="glass-morphism rounded-xl p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full overflow-hidden">
-              <img
-                src={user?.imageUrl}
-                alt={user?.fullName || ''}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-white mb-1">
-                Welcome back, {user?.firstName}! 👋
-              </h1>
-              <div className="flex items-center gap-6 text-sm text-gray-400">
-                <span className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-yellow-400" />
-                  {stats.credits} credits available
-                </span>
-                <span className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-green-400" />
-                  {stats.totalGenerations} thumbnails created
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <Link href="/dashboard/create">
-            <button className="btn-base btn-primary px-6 py-3 text-sm font-medium">
-              <Wand2 className="w-4 h-4 mr-2" />
-              Create Thumbnail
-            </button>
-          </Link>
+    <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white">
+            Welcome back, {user?.firstName || 'Creator'}! 👋
+          </h1>
+          <p className="text-gray-400 mt-1">Let's create some amazing thumbnails today</p>
         </div>
+        <Link
+          href="/dashboard/create"
+          className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-colors focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+        >
+          <Plus className="w-5 h-5" />
+          Create Thumbnail
+        </Link>
       </div>
 
-      {/* Recent Creations */}
-      <div className="glass-morphism rounded-xl p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-white">Recent Creations</h2>
-          <Link href="/dashboard/history" className="text-sm text-purple-400 hover:text-purple-300 font-medium">
-            View All History →
-          </Link>
+      {/* Quick Stats with progressive loading */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {STATIC_DASHBOARD_DATA.quickStats.map((stat, index) => (
+          <StatCard
+            key={stat.label}
+            stat={stat}
+            realData={statsData?.stats?.[index]}
+          />
+        ))}
+      </div>
+
+      {/* Recent Activity & Quick Actions */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <RecentActivity realData={generationsData?.generations} />
         </div>
 
-        {recentGenerations.length > 0 ? (
+        {/* Quick Actions */}
+        <div className="bg-gray-800 border border-gray-600 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
           <div className="space-y-3">
-            {recentGenerations.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between p-4 bg-dark-700/20 hover:bg-dark-700/40 rounded-lg transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-lg flex items-center justify-center">
-                    {item.imageUrl ? (
-                      <img
-                        src={item.imageUrl}
-                        alt="Thumbnail"
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                    ) : (
-                      <Wand2 className="w-5 h-5 text-purple-400" />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-white text-sm">
-                      {item.prompt.length > 50 ? `${item.prompt.substring(0, 50)}...` : item.prompt}
-                    </h3>
-                    <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
-                      <Clock className="w-3 h-3" />
-                      {new Date(item.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs px-2 py-1 rounded-full ${item.status === 'COMPLETED'
-                      ? 'bg-green-500/20 text-green-400'
-                      : item.status === 'PENDING'
-                        ? 'bg-yellow-500/20 text-yellow-400'
-                        : 'bg-red-500/20 text-red-400'
-                    }`}>
-                    {item.status}
-                  </span>
-                  {item.imageUrl && (
-                    <button className="btn-base btn-outline btn-sm text-xs px-3 py-1.5">
-                      View
-                    </button>
-                  )}
+            <Link
+              href="/dashboard/create"
+              className="block w-full bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-lg transition-colors focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+            >
+              <div className="flex items-center gap-3">
+                <Wand2 className="w-5 h-5" />
+                <div className="text-left">
+                  <p className="font-medium">Create Thumbnail</p>
+                  <p className="text-xs text-purple-200">Generate your next viral thumbnail</p>
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-dark-700/30 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <Wand2 className="w-8 h-8 text-gray-500" />
-            </div>
-            <h3 className="text-base font-medium text-white mb-2">No creations yet</h3>
-            <p className="text-sm text-gray-400 mb-4">Start creating your first AI thumbnail</p>
-            <Link href="/dashboard/create">
-              <button className="btn-base btn-primary btn-sm">
-                <Wand2 className="w-4 h-4 mr-2" />
-                Create First Thumbnail
-              </button>
+            </Link>
+            <Link
+              href="/dashboard/personas"
+              className="block w-full bg-gray-700 hover:bg-gray-600 text-white p-4 rounded-lg transition-colors focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+            >
+              <div className="flex items-center gap-3">
+                <User className="w-5 h-5" />
+                <div className="text-left">
+                  <p className="font-medium">Manage Personas</p>
+                  <p className="text-xs text-gray-300">Create content personalities</p>
+                </div>
+              </div>
+            </Link>
+
+            <Link
+              href="/dashboard/styles"
+              className="block w-full bg-gray-700 hover:bg-gray-600 text-white p-4 rounded-lg transition-colors focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+            >
+              <div className="flex items-center gap-3">
+                <Palette className="w-5 h-5" />
+                <div className="text-left">
+                  <p className="font-medium">Add Styles</p>
+                  <p className="text-xs text-gray-300">Upload reference images</p>
+                </div>
+              </div>
             </Link>
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
