@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { db, users, generations, personas, styles } from "@/lib/db";
 import { eq, count } from "drizzle-orm";
+import { ensureUserExists } from "@/lib/auth-helpers";
 
 export async function GET() {
   try {
@@ -9,6 +10,8 @@ export async function GET() {
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    await ensureUserExists(userId);
 
     const user = await db
       .select()
