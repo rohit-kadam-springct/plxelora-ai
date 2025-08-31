@@ -52,10 +52,22 @@ export async function generateImage(
     } = request;
 
     // Enhanced prompt for better thumbnail results
-    const enhancedPrompt = `Generate a professional, high-quality thumbnail image: ${prompt}
-Style: Eye-catching, vibrant colors, sharp focus, suitable for social media and YouTube
-Format: ${aspectRatio} aspect ratio, clean composition, engaging visual design
-Technical: High resolution, good contrast, optimized for preview sizes`;
+    const enhancedPrompt = `Generate a professional, high-quality thumbnail image using the ENTIRE CANVAS with NO borders, padding, or empty space. Fill the complete frame edge-to-edge with vibrant, engaging content: ${prompt}
+
+    CRITICAL REQUIREMENTS:
+    - Use 100% of the available canvas space
+    - NO white borders, margins, or padding around edges
+    - Fill the entire ${aspectRatio} aspect ratio completely
+    - Center and emphasize the MAIN SUBJECT so it dominates the frame
+    - Strong focal point with clear hierarchy (no clutter)
+    - Sharp focus, vibrant colors, and high contrast
+    - Optimized for social media and YouTube thumbnails
+    - Output resolution: minimum 1280x720 (HD) or higher
+    - Professional finish: clean, polished, eye-catching
+
+    AVOID: Empty space, borders, margins, padding, blank areas, unused canvas space, or weak subject placement
+
+    STYLE: Bold, professional, cinematic or photorealistic (depending on subject), designed to instantly capture attention in a feed.`;
 
     console.log("🚀 Sending request to OpenRouter...");
 
@@ -76,10 +88,11 @@ Technical: High resolution, good contrast, optimized for preview sizes`;
 
     // ✅ If persona image provided, include it in the message
     if (request.personaImage) {
+      const ratio = aspectRatio.split(":");
       messages[0].content.push({
         type: "image_url",
         image_url: {
-          url: request.personaImage,
+          url: `${request.personaImage}?tr=ar-${ratio[0]}-${ratio[1]},cm-pad_resize,bg-F3F3F3`,
         },
       });
     }

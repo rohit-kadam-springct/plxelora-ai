@@ -156,7 +156,7 @@ export async function POST(request: Request) {
         prompt: enhancedPrompt,
         aspectRatio: aspectRatio as "16:9" | "9:16" | "1:1",
         model: "GEMINI_IMAGE",
-        personaImage: persona.imageUrl,
+        personaImage: persona?.imageUrl,
       };
 
       const result = await generateImage(generationRequest);
