@@ -93,7 +93,7 @@ export async function POST(request: Request) {
     let enhancedPrompt = `Create a professional ${dimensions.name} thumbnail (${dimensions.width}x${dimensions.height}): ${prompt}`;
 
     if (persona) {
-      enhancedPrompt += ` | Persona: ${persona.name} | Reference person image: ${persona.imageUrl}`;
+      enhancedPrompt += ` | Persona: ${persona.name} | Reference person image: ${persona.imageUrl} | Include the persona in the thumbnail image | `;
     }
 
     if (style?.extractedMetadata) {
