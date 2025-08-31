@@ -4,7 +4,7 @@ import { db, styles, styleImages, users } from "@/lib/db";
 import { eq, count } from "drizzle-orm";
 import { extractCombinedStyleMetadata } from "@/lib/style-extractor";
 
-const FREE_TIER_STYLE_LIMIT = 2;
+const FREE_TIER_STYLE_LIMIT = 10;
 
 export async function GET() {
   try {

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { db, personas, users } from "@/lib/db";
 import { eq, count } from "drizzle-orm";
 
-const FREE_TIER_PERSONA_LIMIT = 3;
+const FREE_TIER_PERSONA_LIMIT = 10;
 
 export async function GET() {
   try {
