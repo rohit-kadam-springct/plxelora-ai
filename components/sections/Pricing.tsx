@@ -19,6 +19,7 @@ const pricingPlans = [
       'Community support',
     ],
     popular: false,
+    comingSoon: true,
   },
   {
     name: 'Creator',
@@ -34,6 +35,7 @@ const pricingPlans = [
       'Batch generation',
     ],
     popular: true,
+    comingSoon: true,
   },
   {
     name: 'Pro',
