@@ -5,10 +5,11 @@ import { eq, and } from "drizzle-orm";
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth();
+    const { id } = await params;
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -25,12 +26,12 @@ export async function DELETE(
     // Use transaction for consistency
     await db.transaction(async (tx) => {
       // Delete style images first
-      await tx.delete(styleImages).where(eq(styleImages.styleId, params.id));
+      await tx.delete(styleImages).where(eq(styleImages.styleId, id));
 
       // Delete the style
       const result = await tx
         .delete(styles)
-        .where(and(eq(styles.id, params.id), eq(styles.userId, user[0].id)))
+        .where(and(eq(styles.id, id), eq(styles.userId, user[0].id)))
         .returning();
 
       if (!result.length) {
@@ -50,10 +51,11 @@ export async function DELETE(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth();
+    const { id } = await params;
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -87,7 +89,7 @@ export async function PUT(
           description: description?.trim(),
           updatedAt: new Date(),
         })
-        .where(and(eq(styles.id, params.id), eq(styles.userId, user[0].id)))
+        .where(and(eq(styles.id, id), eq(styles.userId, user[0].id)))
         .returning();
 
       if (!updatedStyle) {
@@ -95,11 +97,11 @@ export async function PUT(
       }
 
       // Delete existing images
-      await tx.delete(styleImages).where(eq(styleImages.styleId, params.id));
+      await tx.delete(styleImages).where(eq(styleImages.styleId, id));
 
       // Add new images
       const newImages = imageUrls.map((url: string, index: number) => ({
-        styleId: params.id,
+        styleId: id,
         imageUrl: url,
         order: index,
       }));

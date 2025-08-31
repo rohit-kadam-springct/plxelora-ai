@@ -5,10 +5,11 @@ import { eq, and } from "drizzle-orm";
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth();
+    const { id } = await params;
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -22,12 +23,10 @@ export async function DELETE(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const { id } = await params;
-
     // Delete persona (only if belongs to user)
     const result = await db
       .delete(personas)
-      .where(and(eq(personas.id, params.id), eq(personas.userId, user[0].id)))
+      .where(and(eq(personas.id, id), eq(personas.userId, user[0].id)))
       .returning();
 
     if (!result.length) {
@@ -46,10 +45,11 @@ export async function DELETE(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth();
+    const { id } = await params;
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -82,7 +82,7 @@ export async function PUT(
         imageUrl,
         updatedAt: new Date(),
       })
-      .where(and(eq(personas.id, params.id), eq(personas.userId, user[0].id)))
+      .where(and(eq(personas.id, id), eq(personas.userId, user[0].id)))
       .returning();
 
     if (!updatedPersona) {
