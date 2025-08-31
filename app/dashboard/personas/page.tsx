@@ -141,9 +141,9 @@ export default function PersonaPage() {
               <div className="relative mb-4">
                 <img
                   src={generateSharpThumbnail(persona.imageUrl, {
-                    width: 200,
-                    height: 200,
-                    quality: 90,
+                    width: 400,
+                    height: 400,
+                    quality: 100,
                     hasFace: true,
                     cropMode: 'face'
                   })}
@@ -385,9 +385,9 @@ function PersonaModal({ persona, isOpen, onClose, onSuccess }: PersonaModalProps
               <div className="relative">
                 <img
                   src={generateSharpThumbnail(formData.imageUrl, {
-                    width: 200,
-                    height: 200,
-                    quality: 90,
+                    width: 400,
+                    height: 400,
+                    quality: 100,
                     hasFace: true
                   })}
                   alt="Persona preview"

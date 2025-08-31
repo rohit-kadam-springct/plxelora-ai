@@ -72,9 +72,9 @@ export const ThumbnailPresets = {
   // For small UI avatars
   avatar: (url: string) =>
     generateSharpThumbnail(url, {
-      width: 40,
-      height: 40,
-      quality: 85,
+      width: 100,
+      height: 100,
+      quality: 100,
       hasFace: true,
       cropMode: "face",
     }),

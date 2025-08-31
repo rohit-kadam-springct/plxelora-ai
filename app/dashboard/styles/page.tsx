@@ -461,9 +461,9 @@ function StyleModal({ style, isOpen, onClose, onSuccess }: StyleModalProps) {
                   <div key={index} className="relative group">
                     <img
                       src={generateSharpThumbnail(url, {
-                        width: 100,
-                        height: 100,
-                        quality: 85,
+                        width: 400,
+                        height: 400,
+                        quality: 100,
                         cropMode: 'auto'
                       })}
                       alt={`Reference ${index + 1}`}
@@ -588,9 +588,9 @@ function StyleViewModal({ style, isOpen, onClose, onEdit }: StyleViewModalProps)
                 <img
                   key={img.id}
                   src={generateSharpThumbnail(img.imageUrl, {
-                    width: 200,
-                    height: 200,
-                    quality: 90,
+                    width: 400,
+                    height: 400,
+                    quality: 100,
                     cropMode: 'auto'
                   })}
                   alt={`${style.name} reference ${index + 1}`}

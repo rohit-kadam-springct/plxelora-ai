@@ -300,9 +300,9 @@ export default function HistoryPage() {
                   {generation.imageUrl && generation.status === 'COMPLETED' ? (
                     <img
                       src={generateSharpThumbnail(generation.imageUrl, {
-                        width: 300,
-                        height: 200,
-                        quality: 85,
+                        width: 400,
+                        height: 300,
+                        quality: 100,
                         cropMode: 'auto'
                       })}
                       alt={generation.prompt}
